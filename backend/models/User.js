@@ -1,20 +1,25 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  email: { 
-    type: String, 
-    required: true, 
-    unique: true, 
-    match: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/ // Email pattern validation
-  },
-  rollno: { 
-    type: String, 
-    required: true, 
-    unique: true, 
-    match: /^[0-9]{2}[A-Z]{3}[0-9]{3}$/ // Example: "23CSR139"
-  },
-  password: { type: String, required: true }
+  email: { type: String, required: true, unique: true },
+  rollno: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  role: { type: String, required: true, enum: ["admin", "student"], default: "student" }
+});
+
+// ✅ Automatically hash the password before saving
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 const User = mongoose.model("User", userSchema);
