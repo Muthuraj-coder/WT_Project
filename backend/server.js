@@ -4,11 +4,17 @@ const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const User = require("./models/User");
 const Attendance = require("./models/Attendance");
+const Leave = require("./models/Leave");
+const multer = require("multer");
+const path = require("path");
 require("dotenv").config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Serve uploads statically (must be before any authentication middleware)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const PORT = process.env.PORT || 5001;
 const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/tracktendance";
@@ -24,6 +30,25 @@ const departmentMap = {
   MTR: "Mechatronics",
   ALR: "Artificial Intelligence and Data Science",
 };
+
+// Set up storage for multer
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, "uploads"));
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+const upload = multer({ storage });
+
+// Ensure uploads directory exists
+const fs = require("fs");
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
 
 // ✅ Connect to MongoDB
 mongoose.connect(MONGO_URI)
@@ -191,37 +216,56 @@ app.get("/api/stats", authenticateUser, async (req, res) => {
   }
 });
 
-
-
 app.get("/api/students-by-department", authenticateUser, async (req, res) => {
   try {
     const students = await User.find({ role: "student" });
-
     const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD
     const studentsWithAttendance = await Promise.all(
       students.map(async (student) => {
+        // Check for attendance record
         const attendance = await Attendance.findOne({
           rollno: student.rollno,
           date: today,
         });
-
+        if (attendance) {
+          return {
+            name: student.name,
+            rollno: student.rollno,
+            status: "✅ Present",
+          };
+        }
+        // Check for confirmed OD leave for today
+        const odLeave = await Leave.findOne({
+          rollno: student.rollno,
+          leaveType: "On Duty",
+          status: "confirmed",
+          $or: [
+            { date: today },
+            { $and: [ { date: { $lte: today } }, { endDate: { $gte: today } } ] }
+          ]
+        });
+        if (odLeave) {
+          return {
+            name: student.name,
+            rollno: student.rollno,
+            status: "✅ Present (OD)",
+          };
+        }
+        // Otherwise, absent
         return {
           name: student.name,
           rollno: student.rollno,
-          status: attendance ? "✅ Present" : "❌ Absent",
+          status: "❌ Absent",
         };
       })
     );
-
     const studentsByDept = {};
     studentsWithAttendance.forEach((student) => {
       const deptCode = student.rollno.substring(2, 5); // Extract department code
       const deptName = departmentMap[deptCode] || `Unknown (${deptCode})`;
-
       if (!studentsByDept[deptName]) studentsByDept[deptName] = [];
       studentsByDept[deptName].push(student);
     });
-
     console.log("📊 Students By Department with Attendance:", studentsByDept);
     res.json(studentsByDept);
   } catch (err) {
@@ -230,8 +274,123 @@ app.get("/api/students-by-department", authenticateUser, async (req, res) => {
   }
 });
 
+// ✅ Student: Apply for Leave/OD (with file upload)
+app.post("/api/apply-leave", authenticateUser, upload.single("proof"), async (req, res) => {
+  if (req.user.role !== "student") {
+    return res.status(403).json({ error: "Forbidden - Students only" });
+  }
+  try {
+    const { leaveType, reason, description, date, endDate } = req.body;
+    let proofUrl = "";
+    if (req.file) {
+      proofUrl = `/uploads/${req.file.filename}`;
+    }
+    if (!leaveType || !reason || !date || (leaveType === "On Duty" && !proofUrl)) {
+      return res.status(400).json({ error: "All required fields must be filled" });
+    }
+    const leave = new Leave({
+      name: req.user.name,
+      rollno: req.user.rollno,
+      leaveType,
+      reason,
+      description,
+      proof: proofUrl,
+      status: "applied",
+      date,
+      endDate: endDate || null
+    });
+    await leave.save();
+    res.status(201).json({ message: "Leave/OD applied successfully", leave });
+  } catch (err) {
+    console.error("❌ Leave Apply Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
+// ✅ Student: Get My Leaves/OD
+app.get("/api/my-leaves", authenticateUser, async (req, res) => {
+  if (req.user.role !== "student") {
+    return res.status(403).json({ error: "Forbidden - Students only" });
+  }
+  try {
+    const leaves = await Leave.find({ rollno: req.user.rollno }).sort({ appliedAt: -1 });
+    res.json(leaves);
+  } catch (err) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
+// ✅ Admin: Get All Leaves/OD
+app.get("/api/all-leaves", authenticateUser, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Forbidden - Admins only" });
+  }
+  try {
+    const leaves = await Leave.find().sort({ appliedAt: -1 });
+    res.json(leaves);
+  } catch (err) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// ✅ Admin: Update Leave/OD Status
+app.patch("/api/leave-status/:id", authenticateUser, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Forbidden - Admins only" });
+  }
+  try {
+    const { status } = req.body;
+    if (!status || !["pending", "confirmed", "rejected"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+    const leave = await Leave.findByIdAndUpdate(
+      req.params.id,
+      { status, updatedAt: new Date() },
+      { new: true }
+    );
+    if (!leave) return res.status(404).json({ error: "Leave not found" });
+
+    // If any leave is confirmed, mark attendance for the date(s)
+    if (status === "confirmed") {
+      const start = new Date(leave.date);
+      const end = leave.endDate ? new Date(leave.endDate) : start;
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split("T")[0];
+        // Only create if not already present
+        const existing = await Attendance.findOne({ rollno: leave.rollno, date: dateStr });
+        if (!existing) {
+          await new Attendance({
+            name: leave.name,
+            rollno: leave.rollno,
+            status: "Present",
+            date: dateStr
+          }).save();
+          console.log(`Leave Approved: Marked Present for ${leave.rollno} on ${dateStr}`);
+        }
+      }
+    }
+    res.json({ message: "Leave status updated", leave });
+  } catch (err) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// ✅ User Profile Route
+app.get("/api/user-profile", authenticateUser, async (req, res) => {
+  try {
+    if (req.user.role === "student") {
+      const user = await User.findOne({ rollno: req.user.rollno });
+      if (!user) return res.status(404).json({ error: "User not found" });
+      return res.json({ name: user.name, rollno: user.rollno, email: user.email });
+    } else if (req.user.role === "admin") {
+      return res.json({ name: "Admin", role: "admin" });
+    } else {
+      return res.status(400).json({ error: "Invalid user role" });
+    }
+  } catch (err) {
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 // ✅ Start Server
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

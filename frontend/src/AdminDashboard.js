@@ -10,9 +10,25 @@ const AdminDashboard = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [rollno, setRollno] = useState("");
+  const [leaves, setLeaves] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState("success");
+  const [selectedLeaveDept, setSelectedLeaveDept] = useState("");
+
+  // Department mapping (should match backend)
+  const departmentMap = {
+    CSR: "Computer Science and Engineering (CSE)",
+    ITR: "Information Technology (IT)",
+    CDR: "Computer Science and Design (CSD)",
+    ECR: "Electronics and Communication Engineering (ECE)",
+    MTR: "Mechatronics",
+    ALR: "Artificial Intelligence and Data Science",
+  };
 
   useEffect(() => {
     fetchStudents();
+    fetchLeaves();
   }, []);
 
   const fetchStudents = async () => {
@@ -28,6 +44,20 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchLeaves = async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get("http://localhost:5001/api/all-leaves", {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
+      setLeaves(res.data);
+    } catch (err) {
+      setLeaves([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const addStudent = async (e) => {
     e.preventDefault();
     try {
@@ -36,10 +66,19 @@ const AdminDashboard = () => {
         { name, email, rollno },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
-      alert("Student added successfully");
+      
+      // Reset form fields
+      setName("");
+      setEmail("");
+      setRollno("");
+      
+      // Show success message
+      showMessage("Student added successfully", "success");
+      
+      // Refresh student list
       fetchStudents();
     } catch (err) {
-      alert(err.response?.data?.error || "Error adding student");
+      showMessage(err.response?.data?.error || "Error adding student", "error");
     }
   };
 
@@ -47,6 +86,26 @@ const AdminDashboard = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     navigate("/login");
+  };
+
+  const updateStatus = async (id, status) => {
+    try {
+      await axios.patch(
+        `http://localhost:5001/api/leave-status/${id}`,
+        { status },
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      );
+      showMessage("Status updated successfully", "success");
+      fetchLeaves();
+    } catch (err) {
+      showMessage("Failed to update status", "error");
+    }
+  };
+
+  const showMessage = (text, type) => {
+    setMessage(text);
+    setMessageType(type);
+    setTimeout(() => setMessage(""), 3000);
   };
 
   return (
@@ -160,6 +219,121 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                   ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Leave/On Duty Requests Section */}
+      <div className="leave-requests-section">
+        <div className="card leave-requests-card">
+          <div className="card-header">
+            <h2>Leave / On Duty Requests</h2>
+            <div className="filter-section" style={{ marginTop: 10 }}>
+              <label htmlFor="leave-dept-filter">Filter by Department:</label>
+              <select
+                id="leave-dept-filter"
+                value={selectedLeaveDept}
+                onChange={e => setSelectedLeaveDept(e.target.value)}
+              >
+                <option value="">All Departments</option>
+                {Object.keys(studentsByDepartment).map((dept) => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="card-body">
+            {message && <div className={`status-message ${messageType}`}>{message}</div>}
+            
+            {loading ? (
+              <div className="loading-state">
+                <i className="fas fa-spinner fa-pulse"></i>
+                <p>Loading requests...</p>
+              </div>
+            ) : leaves.length === 0 ? (
+              <div className="empty-state">
+                <i className="fas fa-calendar-times"></i>
+                <p>No leave requests found</p>
+              </div>
+            ) : (
+              <div className="leaves-table-container">
+                <table className="leaves-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Roll No</th>
+                      <th>Type</th>
+                      <th>Reason</th>
+                      <th>Description</th>
+                      <th>Status</th>
+                      <th>Proof</th>
+                      <th>Applied At</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaves
+                      .filter((leave) => {
+                        if (!selectedLeaveDept) return true;
+                        const deptCode = leave.rollno?.substring(2, 5);
+                        const deptName = departmentMap[deptCode] || `Unknown (${deptCode})`;
+                        return deptName === selectedLeaveDept;
+                      })
+                      .map((leave) => (
+                        <tr key={leave._id}>
+                          <td>{leave.name}</td>
+                          <td>{leave.rollno}</td>
+                          <td>
+                            <span className={`leave-type-badge ${leave.leaveType.toLowerCase()}`}>
+                              {leave.leaveType}
+                            </span>
+                          </td>
+                          <td>{leave.reason}</td>
+                          <td className="description-cell" title={leave.description}>
+                            {leave.description}
+                          </td>
+                          <td>
+                            <span className={`status-badge ${leave.status.toLowerCase()}`}>
+                              {leave.status}
+                            </span>
+                          </td>
+                          <td>
+                            {leave.proof ? (
+                              <a 
+                                href={`http://localhost:5001${leave.proof}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="proof-link"
+                              >
+                                <i className="fas fa-file-alt"></i> View
+                              </a>
+                            ) : (
+                              <span className="no-proof">Not Available</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className="date-time">
+                              {new Date(leave.appliedAt).toLocaleString()}
+                            </span>
+                          </td>
+                          <td>
+                            <select 
+                              className="status-select"
+                              value={leave.status} 
+                              onChange={(e) => updateStatus(leave._id, e.target.value)}
+                            >
+                              <option value="applied">Applied</option>
+                              <option value="pending">Pending</option>
+                              <option value="confirmed">Confirmed</option>
+                              <option value="rejected">Rejected</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

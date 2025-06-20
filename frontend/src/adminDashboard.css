@@ -93,6 +93,7 @@ body {
   display: grid;
   grid-template-columns: 1fr 3fr;
   gap: 24px;
+  margin-bottom: 24px;
 }
 
 .card {
@@ -374,6 +375,51 @@ select:focus {
   color: #d97706;
 }
 
+/* Status Badge Colors for Leave Status */
+.status-badge.applied {
+  background-color: rgba(79, 70, 229, 0.15);
+  color: #4338ca;
+}
+
+.status-badge.pending {
+  background-color: rgba(251, 191, 36, 0.15);
+  color: #d97706;
+}
+
+.status-badge.confirmed {
+  background-color: rgba(74, 222, 128, 0.15);
+  color: #16a34a;
+}
+
+.status-badge.rejected {
+  background-color: rgba(248, 113, 113, 0.15);
+  color: #dc2626;
+}
+
+/* Leave Type Badge */
+.leave-type-badge {
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.leave-type-badge.leave {
+  background-color: rgba(248, 113, 113, 0.15);
+  color: #dc2626;
+}
+
+.leave-type-badge.od {
+  background-color: rgba(79, 70, 229, 0.15);
+  color: #4338ca;
+}
+
+.leave-type-badge.medical {
+  background-color: rgba(236, 72, 153, 0.15);
+  color: #be185d;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -388,6 +434,131 @@ select:focus {
   font-size: 50px;
   margin-bottom: 20px;
   opacity: 0.5;
+}
+
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  text-align: center;
+  color: var(--primary-color);
+}
+
+.loading-state i {
+  font-size: 40px;
+  margin-bottom: 15px;
+}
+
+/* Leave Requests Section */
+.leave-requests-section {
+  margin-top: 30px;
+  animation: fadeIn 0.6s ease-in-out;
+  animation-delay: 0.3s;
+}
+
+.leaves-table-container {
+  overflow-x: auto;
+}
+
+.leaves-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.leaves-table th,
+.leaves-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.leaves-table th {
+  background-color: rgba(67, 97, 238, 0.05);
+  font-weight: 600;
+  color: var(--primary-dark);
+  position: sticky;
+  top: 0;
+}
+
+.leaves-table tr:hover {
+  background-color: rgba(67, 97, 238, 0.03);
+}
+
+.leaves-table tr:last-child td {
+  border-bottom: none;
+}
+
+.description-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.proof-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.proof-link:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+.no-proof {
+  color: var(--text-light);
+}
+
+.status-select {
+  padding: 6px 10px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background-color: white;
+  font-family: 'Poppins', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.status-select:focus {
+  outline: none;
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.1);
+}
+
+.status-message {
+  padding: 10px 15px;
+  margin-bottom: 15px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.status-message.success {
+  background-color: rgba(74, 222, 128, 0.15);
+  color: #16a34a;
+  border-left: 3px solid var(--success-color);
+}
+
+.status-message.error {
+  background-color: rgba(248, 113, 113, 0.15);
+  color: #dc2626;
+  border-left: 3px solid var(--danger-color);
 }
 
 /* Responsive Design */
@@ -405,6 +576,23 @@ select:focus {
   .students-card .card-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+  
+  .leaves-table th,
+  .leaves-table td {
+    padding: 10px 12px;
+  }
+  
+  .description-cell {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 768px) {
+  .leaves-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
   }
 }
 

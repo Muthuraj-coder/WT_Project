@@ -10,41 +10,34 @@ const StudentDashboard = () => {
   const [notification, setNotification] = useState({ show: false, message: "", type: "" });
 
   useEffect(() => {
-    // Try to get user from localStorage first
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setStudent(parsedUser);
-      } catch (error) {
-        console.error("Error parsing user from localStorage:", error);
-      }
-    }
-
-    // If no user in localStorage or parsing failed, fetch from token
     if (!student) {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setStudent(parsedUser);
+          return;
+        } catch (error) {
+          console.error("Error parsing user from localStorage:", error);
+        }
+      }
+
       const token = localStorage.getItem("token");
       if (token) {
-        // Extract user info from JWT token
         try {
           const base64Url = token.split('.')[1];
           const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
           const tokenData = JSON.parse(window.atob(base64));
-          
-          // Set user data from token
           if (tokenData.name && tokenData.rollno) {
             setStudent({
               name: tokenData.name,
               rollno: tokenData.rollno
             });
-            
-            // Save to localStorage for future use
             localStorage.setItem("user", JSON.stringify({
               name: tokenData.name,
               rollno: tokenData.rollno
             }));
           } else {
-            // If token doesn't have user data, fetch from backend
             fetchUserData(token);
           }
         } catch (error) {
@@ -60,6 +53,8 @@ const StudentDashboard = () => {
     }, 1000);
 
     return () => clearInterval(timer);
+    // Only run on mount
+    // eslint-disable-next-line
   }, []);
 
   // Fetch user data from backend if not available in localStorage or token
@@ -129,6 +124,284 @@ const StudentDashboard = () => {
 
   const closeNotification = () => {
     setNotification({ ...notification, show: false });
+  };
+
+  const LeaveApplication = () => {
+    const [leaveType, setLeaveType] = useState("");
+    const [reason, setReason] = useState("");
+    const [description, setDescription] = useState("");
+    const [proof, setProof] = useState(null);
+    const [message, setMessage] = useState("");
+    const [leaves, setLeaves] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [isMulti, setIsMulti] = useState(false);
+    const [date, setDate] = useState("");
+    const [endDate, setEndDate] = useState("");
+
+    useEffect(() => {
+      fetchLeaves();
+    }, []);
+
+    const fetchLeaves = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get("http://localhost:5001/api/my-leaves", {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        setLeaves(res.data);
+      } catch (err) {
+        setLeaves([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      if (!leaveType || !reason || !date || (leaveType === "On Duty" && !proof)) {
+        setMessage("Please fill all required fields and upload proof for On Duty.");
+        return;
+      }
+      const formData = new FormData();
+      formData.append("leaveType", leaveType);
+      formData.append("reason", reason);
+      formData.append("description", description);
+      formData.append("date", date);
+      if (isMulti && endDate) formData.append("endDate", endDate);
+      if (proof) {
+        formData.append("proof", proof);
+      }
+      try {
+        await axios.post(
+          "http://localhost:5001/api/apply-leave",
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+              "Content-Type": "multipart/form-data"
+            }
+          }
+        );
+        setMessage("Leave/OD applied successfully!");
+        setLeaveType(""); setReason(""); setDescription(""); setProof(null); setDate(""); setEndDate(""); setIsMulti(false);
+        fetchLeaves();
+      } catch (err) {
+        setMessage(err.response?.data?.error || "Failed to apply for leave/OD");
+      }
+    };
+
+    return (
+      <div className="leave-application-section">
+        <div className="section-header">
+          <h2>Apply for Leave / On Duty</h2>
+          <p className="section-description">Submit your leave or on-duty requests</p>
+        </div>
+        
+        <div className="leave-application-container">
+          <div className="leave-form-card">
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label htmlFor="leaveType">Leave Type <span className="required">*</span></label>
+                <select 
+                  id="leaveType"
+                  value={leaveType} 
+                  onChange={e => setLeaveType(e.target.value)} 
+                  required
+                  className="form-control"
+                >
+                  <option value="">Select Type</option>
+                  <option value="Sick">Sick Leave</option>
+                  <option value="Casual">Casual Leave</option>
+                  <option value="On Duty">On Duty</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="reason">Reason <span className="required">*</span></label>
+                <input 
+                  id="reason"
+                  type="text"
+                  value={reason} 
+                  onChange={e => setReason(e.target.value)} 
+                  required
+                  className="form-control"
+                  placeholder="Brief reason for leave"
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="description">Description</label>
+                <textarea 
+                  id="description"
+                  value={description} 
+                  onChange={e => setDescription(e.target.value)} 
+                  maxLength={500}
+                  className="form-control"
+                  placeholder="Additional details (optional)"
+                  rows="3"
+                />
+              </div>
+              
+              <div className="form-group date-selection">
+                <div className="date-type-selection">
+                  <label>Day Selection</label>
+                  <div className="radio-group">
+                    <label className="radio-label">
+                      <input 
+                        type="radio" 
+                        checked={!isMulti} 
+                        onChange={() => setIsMulti(false)} 
+                        name="dateType"
+                      /> 
+                      <span>Single Day</span>
+                    </label>
+                    <label className="radio-label">
+                      <input 
+                        type="radio" 
+                        checked={isMulti} 
+                        onChange={() => setIsMulti(true)} 
+                        name="dateType"
+                      /> 
+                      <span>Multiple Days</span>
+                    </label>
+                  </div>
+                </div>
+                
+                <div className="date-inputs">
+                  <div className="date-field">
+                    <label htmlFor="startDate">From Date <span className="required">*</span></label>
+                    <input 
+                      id="startDate"
+                      type="date" 
+                      value={date} 
+                      onChange={e => setDate(e.target.value)} 
+                      required
+                      className="form-control"
+                    />
+                  </div>
+                  
+                  {isMulti && (
+                    <div className="date-field">
+                      <label htmlFor="endDate">To Date <span className="required">*</span></label>
+                      <input 
+                        id="endDate"
+                        type="date" 
+                        value={endDate} 
+                        onChange={e => setEndDate(e.target.value)} 
+                        required={isMulti}
+                        className="form-control"
+                        min={date}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="proof">
+                  Proof Document (PDF, max 100KB) 
+                  {leaveType === "On Duty" && <span className="required">*</span>}
+                </label>
+                <input
+                  id="proof"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={e => setProof(e.target.files[0])}
+                  required={leaveType === "On Duty"}
+                  className="form-control file-input"
+                />
+                <p className="file-help">Upload supporting documentation</p>
+              </div>
+              
+              <div className="form-action">
+                <button type="submit" className="submit-button">
+                  <i className="fas fa-paper-plane"></i>
+                  Submit Application
+                </button>
+              </div>
+            </form>
+            
+            {message && (
+              <div className="form-message success-message">
+                <i className="fas fa-check-circle"></i>
+                <span>{message}</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="leave-history-card">
+            <h3><i className="fas fa-history"></i> My Applications</h3>
+            
+            {loading ? (
+              <div className="loading-indicator">
+                <i className="fas fa-circle-notch fa-spin"></i>
+                <span>Loading applications...</span>
+              </div>
+            ) : leaves.length === 0 ? (
+              <div className="no-data-message">
+                <i className="fas fa-info-circle"></i>
+                <p>No leave applications found</p>
+              </div>
+            ) : (
+              <div className="leave-table-container">
+                <table className="leave-table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Reason</th>
+                      <th>Status</th>
+                      <th>Date(s)</th>
+                      <th>Proof</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaves.map(leave => (
+                      <tr key={leave._id}>
+                        <td>
+                          <span className={`leave-type ${leave.leaveType.toLowerCase()}`}>
+                            {leave.leaveType}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="leave-reason">
+                            <p className="reason-text">{leave.reason}</p>
+                            {leave.description && (
+                              <span className="reason-tooltip" title={leave.description}>
+                                <i className="fas fa-info-circle"></i>
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`status-badge ${leave.status.toLowerCase()}`}>
+                            {leave.status}
+                          </span>
+                        </td>
+                        <td>
+                          {leave.endDate ? `${leave.date} to ${leave.endDate}` : leave.date}
+                        </td>
+                        <td>
+                          {leave.proof ? (
+                            <a href={`http://localhost:5001${leave.proof}`} 
+                               target="_blank" 
+                               rel="noopener noreferrer"
+                               className="proof-link">
+                              <i className="fas fa-file-pdf"></i> View
+                            </a>
+                          ) : (
+                            <span className="no-proof">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -234,6 +507,8 @@ const StudentDashboard = () => {
               </button>
             </div>
           </div>
+          
+          <LeaveApplication />
         </div>
       </div>
     </div>
