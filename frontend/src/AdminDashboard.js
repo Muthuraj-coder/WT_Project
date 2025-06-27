@@ -33,7 +33,7 @@ const AdminDashboard = () => {
 
   const fetchStudents = async () => {
     try {
-      const response = await axios.get("http://localhost:5001/api/students-by-department", {
+      const response = await axios.get("https://wt-project-backend-ci10.onrender.com/api/students-by-department", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
 
@@ -47,7 +47,7 @@ const AdminDashboard = () => {
   const fetchLeaves = async () => {
     setLoading(true);
     try {
-      const res = await axios.get("http://localhost:5001/api/all-leaves", {
+      const res = await axios.get("https://wt-project-backend-ci10.onrender.com/api/all-leaves", {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       setLeaves(res.data);
@@ -62,7 +62,7 @@ const AdminDashboard = () => {
     e.preventDefault();
     try {
       await axios.post(
-        "http://localhost:5001/api/admin/add-student",
+        "https://wt-project-backend-ci10.onrender.com/api/admin/add-student",
         { name, email, rollno },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
@@ -91,7 +91,7 @@ const AdminDashboard = () => {
   const updateStatus = async (id, status) => {
     try {
       await axios.patch(
-        `http://localhost:5001/api/leave-status/${id}`,
+        `https://wt-project-backend-ci10.onrender.com/api/leave-status/${id}`,
         { status },
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
@@ -302,7 +302,7 @@ const AdminDashboard = () => {
                           <td>
                             {leave.proof ? (
                               <a 
-                                href={`http://localhost:5001${leave.proof}`} 
+                                href={`https://wt-project-backend-ci10.onrender.com${leave.proof}`} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="proof-link"

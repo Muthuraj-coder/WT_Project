@@ -21,7 +21,7 @@ const MarkAttendance = () => {
 
     try {
       const response = await axios.post(
-        "http://localhost:5001/api/mark-attendance",
+        "https://wt-project-backend-ci10.onrender.com/api/mark-attendance",
         { name: user.name, rollno: user.rollno },
         {
           headers: { Authorization: `Bearer ${token}` }, // ✅ Send token

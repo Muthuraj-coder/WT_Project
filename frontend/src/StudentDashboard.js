@@ -61,7 +61,7 @@ const StudentDashboard = () => {
   const fetchUserData = async (token) => {
     try {
       const response = await axios.get(
-        "http://localhost:5001/api/user-profile", 
+        "https://wt-project-backend-ci10.onrender.com/api/user-profile", 
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
@@ -87,7 +87,7 @@ const StudentDashboard = () => {
   const markAttendance = async () => {
     try {
       await axios.post(
-        "http://localhost:5001/api/mark-attendance",
+        "https://wt-project-backend-ci10.onrender.com/api/mark-attendance",
         {},
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
@@ -145,7 +145,7 @@ const StudentDashboard = () => {
     const fetchLeaves = async () => {
       try {
         setLoading(true);
-        const res = await axios.get("http://localhost:5001/api/my-leaves", {
+        const res = await axios.get("https://wt-project-backend-ci10.onrender.com/api/my-leaves", {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
         setLeaves(res.data);
@@ -173,7 +173,7 @@ const StudentDashboard = () => {
       }
       try {
         await axios.post(
-          "http://localhost:5001/api/apply-leave",
+          "https://wt-project-backend-ci10.onrender.com/api/apply-leave",
           formData,
           {
             headers: {
@@ -382,7 +382,7 @@ const StudentDashboard = () => {
                         </td>
                         <td>
                           {leave.proof ? (
-                            <a href={`http://localhost:5001${leave.proof}`} 
+                            <a href={`https://wt-project-backend-ci10.onrender.com${leave.proof}`} 
                                target="_blank" 
                                rel="noopener noreferrer"
                                className="proof-link">

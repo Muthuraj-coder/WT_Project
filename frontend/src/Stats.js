@@ -32,7 +32,7 @@ const Stats = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get("http://localhost:5001/api/stats", {
+      const response = await axios.get("https://wt-project-backend-ci10.onrender.com/api/stats", {
         params: { date },
         headers: { Authorization: `Bearer ${token}` },
       });
