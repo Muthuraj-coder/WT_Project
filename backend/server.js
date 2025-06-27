@@ -17,7 +17,7 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const PORT = process.env.PORT || 5001;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/tracktendance";
+const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://muthurajd23cse:Muthu4855@crud.ftlqkl0.mongodb.net/TracktendanceDB?retryWrites=true&w=majority&appName=CRUD";
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
